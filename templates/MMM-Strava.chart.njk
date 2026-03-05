@@ -16,11 +16,17 @@
             <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" role="group" style="width: 500px; height: 500px; overflow: visible;">
                 <g id="bars" role="list" aria-label="radial histogram" opacity="1" transform="translate(219,219)">
                     {% for interval in activityData.intervals %}
+                    {% set sec_interval = activityData.secondary_intervals[loop.index0] %}
                     <g id="interval-{{ loop.index0 | getLabel }}" role="listitem">
                         <text class="label {{ loop.index0 | getIntervalClass }}" transform="{{ loop.index0 | getRadialLabelTransform((activityData.intervals | length)) }}" x="-6" y="7" dy="-4.455">
                             <tspan>{{ loop.index0 | getLabel }}</tspan>
                         </text>
-                        <path class="bar {{ loop.index0 | getIntervalClass }} interval-{{ loop.index }}" d="{{ loop.index0 | getRadialDataPath( (activityData.intervals | length), (interval/activityData.max_interval_distance) ) }} "></path>
+                        {% if interval > 0 or sec_interval == 0 %}
+                        <path class="bar {{ loop.index0 | getIntervalClass }} interval-{{ loop.index }}" d="{{ loop.index0 | getRadialDataPath( (activityData.intervals | length), 0, (interval/activityData.max_interval_distance) ) }} "></path>
+                        {% endif %}
+                        {% if sec_interval > 0 %}
+                        <path class="bar secondary {{ loop.index0 | getIntervalClass }} interval-{{ loop.index }}" opacity="0.5" d="{{ loop.index0 | getRadialDataPath( (activityData.intervals | length), (interval/activityData.max_interval_distance), (sec_interval/activityData.max_interval_distance) ) }} "></path>
+                        {% endif %}
                     </g>
                     {% endfor %}
                     <text y="-30" fill="#ffffff">
@@ -62,9 +68,16 @@
             <svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="{{ 12.5 * (activityData.intervals | length) + 75 }}" height="68">
                 <g class="activity-chart" transform="translate(3.3, 0)">
                 {% for interval in activityData.intervals %}
-                {% set bar_height = (interval/activityData.max_interval_distance * 45) if (interval > 0) else 2 %}
+                {% set sec_interval = activityData.secondary_intervals[loop.index0] %}
+                {% set bar_height = (interval/activityData.max_interval_distance * 45) if (interval > 0) else (2 if sec_interval == 0 else 0) %}
+                {% set sec_bar_height = (sec_interval/activityData.max_interval_distance * 45) if (sec_interval > 0) else 0 %}
                     <g class="bar-container" transform="translate({{ loop.index0 * 12.5 }}, 0)">
+                        {% if interval > 0 or sec_interval == 0 %}
                         <rect class="bar {{ loop.index0 | getIntervalClass }}" y="{{ 50 - bar_height }}" width="6.6" height="{{ bar_height }}"></rect>
+                        {% endif %}
+                        {% if sec_interval > 0 %}
+                        <rect class="bar secondary {{ loop.index0 | getIntervalClass }}" opacity="0.5" y="{{ 50 - bar_height - sec_bar_height }}" width="6.6" height="{{ sec_bar_height }}"></rect>
+                        {% endif %}
                     </g>
                     <g class="label-container" transform="translate({{ loop.index0 * 12.5 }}, 63)">
                         <text class="label {{ loop.index0 | getIntervalClass }}" x="0" y="0">{{ loop.index0 | getLabel }}</text>

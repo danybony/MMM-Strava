@@ -280,11 +280,15 @@ Module.register("MMM-Strava", {
 		return `translate(${translation.x}, ${translation.y}) rotate(${rotation})`;
 	},
 	// getRadialDataPath
-	getRadialDataPath(index, count, value) {
+	getRadialDataPath(index, count, valueOffset, value) {
+		if (value === undefined) {
+			value = valueOffset;
+			valueOffset = 0;
+		}
 		const gap = 5;
 		const startAngle = gap / 2 + index * (360 / count);
 		const endAngle = startAngle + (360 - count * gap) / count;
-		const radius = { inner: 109, outer: 109 + value * 100 };
+		const radius = { inner: 109 + valueOffset * 100, outer: 109 + (valueOffset + value) * 100 };
 		if (value > 0) {
 			// identify points
 			var p1 = this.polarToCartesian(0, 0, radius.inner, startAngle);

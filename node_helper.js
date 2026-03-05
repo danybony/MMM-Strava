@@ -366,7 +366,13 @@ module.exports = NodeHelper.create({
 		this.log("Summarising athlete activities for " + moduleIdentifier);
 		var moduleConfig = this.configs[moduleIdentifier].config;
 		var activitySummary = Object.create(null);
-		var activityName;
+
+		var configuredActivities = [];
+		if (moduleConfig.activities) {
+			configuredActivities = moduleConfig.activities.map(a => a.toLowerCase().replace("virtual", ""));
+		}
+		var mainActivityName = configuredActivities.length > 0 ? configuredActivities[0] : null;
+
 		// Initialise activity summary
 		const periodIntervalMap = {
 			all: [...Array(moment().year() - moduleConfig.firstYear + 1).keys()].map((i) => i + moduleConfig.firstYear),
@@ -374,46 +380,59 @@ module.exports = NodeHelper.create({
 			recent: moment.weekdaysShort()
 		};
 		var periodIntervals = periodIntervalMap[moduleConfig.period];
-		for (var activity in moduleConfig.activities) {
-			if (Object.prototype.hasOwnProperty.call(moduleConfig.activities, activity)) {
-				activityName = moduleConfig.activities[activity].toLowerCase().replace("virtual", "");
-				activitySummary[activityName] = {
-					total_activity_count: 0,
-					total_distance: 0,
-					total_elevation_gain: 0,
-					total_moving_time: 0,
-					total_elapsed_time: 0,
-					total_achievement_count: 0,
-					max_interval_distance: 0,
-					intervals: Array(periodIntervals.length).fill(0)
-				};
-			}
+
+		if (mainActivityName) {
+			activitySummary[mainActivityName] = {
+				total_activity_count: 0,
+				total_distance: 0,
+				total_elevation_gain: 0,
+				total_moving_time: 0,
+				total_elapsed_time: 0,
+				total_achievement_count: 0,
+				max_interval_distance: 0,
+				intervals: Array(periodIntervals.length).fill(0),
+				secondary_intervals: Array(periodIntervals.length).fill(0)
+			};
 		}
+
 		// Summarise activity totals and interval totals
 		for (var i = 0; i < Object.keys(activityList).length; i++) {
 			// Merge virtual activities
-			activityName = activityList[i].type.toLowerCase().replace("virtual", "");
-			var activityTypeSummary = activitySummary[activityName];
-			// Update activity summaries
-			if (activityTypeSummary) {
-				var distance = activityList[i].distance;
-				activityTypeSummary.total_activity_count += 1;
-				activityTypeSummary.total_distance += distance;
-				activityTypeSummary.total_elevation_gain += activityList[i].total_elevation_gain;
-				activityTypeSummary.total_moving_time += activityList[i].moving_time;
-				activityTypeSummary.total_elapsed_time += activityList[i].elapsed_time;
-				activityTypeSummary.total_achievement_count += activityList[i].achievement_count;
-				const activityDate = moment(activityList[i].start_date_local);
-				const intervalIndexMap = {
-					all: activityDate.year() - moduleConfig.firstYear,
-					ytd: activityDate.month(),
-					recent: activityDate.weekday()
-				};
-				const intervalIndex = intervalIndexMap[moduleConfig.period];
-				activityTypeSummary.intervals[intervalIndex] += distance;
-				// Update max interval distance
-				if (activityTypeSummary.intervals[intervalIndex] > activityTypeSummary.max_interval_distance) {
-					activityTypeSummary.max_interval_distance = activityTypeSummary.intervals[intervalIndex];
+			var activityName = activityList[i].type.toLowerCase().replace("virtual", "");
+
+			if (configuredActivities.includes(activityName)) {
+				var mainSummary = activitySummary[mainActivityName];
+
+				if (mainSummary) {
+					var distance = activityList[i].distance;
+					var time = activityList[i].moving_time;
+
+					const activityDate = moment(activityList[i].start_date_local);
+					const intervalIndexMap = {
+						all: activityDate.year() - moduleConfig.firstYear,
+						ytd: activityDate.month(),
+						recent: activityDate.weekday()
+					};
+					const intervalIndex = intervalIndexMap[moduleConfig.period];
+
+					if (activityName === mainActivityName) {
+						mainSummary.intervals[intervalIndex] += time;
+					} else {
+						mainSummary.secondary_intervals[intervalIndex] += time;
+					}
+
+					// Accumulate total stats for all configured activities
+					mainSummary.total_activity_count += 1;
+					mainSummary.total_distance += distance;
+					mainSummary.total_elevation_gain += activityList[i].total_elevation_gain;
+					mainSummary.total_moving_time += time;
+					mainSummary.total_elapsed_time += activityList[i].elapsed_time;
+					mainSummary.total_achievement_count += activityList[i].achievement_count;
+
+					// Update max interval based on sum of primary and secondary time
+					if (mainSummary.intervals[intervalIndex] + mainSummary.secondary_intervals[intervalIndex] > mainSummary.max_interval_distance) {
+						mainSummary.max_interval_distance = mainSummary.intervals[intervalIndex] + mainSummary.secondary_intervals[intervalIndex];
+					}
 				}
 			}
 		}
